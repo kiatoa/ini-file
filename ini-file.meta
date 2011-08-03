@@ -1,0 +1,5 @@
+((license "BSD")
+ (category parsing)
+ (author "Evan Hanson")
+ (synopsis "Read & write INI configuration files")
+ (doc-from-wiki))
