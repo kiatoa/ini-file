@@ -39,7 +39,7 @@
   (read-ini write-ini default-section property-separator)
   (import (except scheme newline)
           (only ports with-input-from-string with-output-to-string)
-          (only chicken case-lambda make-parameter parameterize
+          (only chicken void case-lambda make-parameter parameterize
                         make-composite-condition make-property-condition
                         error signal handle-exceptions))
 
@@ -108,7 +108,7 @@
   ;; Discard comments and whitespace from the port.
   (define (move-to-next-token port)
     (let ((ch (peek-char port)))
-      (cond ((eof ch))
+      (cond ((eof ch)        (void))
             ((whitespace ch) (read-char port)
                              (move-to-next-token port))
             ((comment ch)    (read-until (match eof newline) port)
@@ -194,7 +194,7 @@
              ((output-port? out)
               (parameterize ((current-output-port out))
                 (let loop ((lst alist))
-                  (cond ((null? lst) (begin))
+                  (cond ((null? lst) (void))
                         ((list? lst)
                          (if (symbol? (car lst))
                            (begin (for-each display
