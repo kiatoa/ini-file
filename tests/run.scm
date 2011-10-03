@@ -17,7 +17,7 @@
 (check (input "one")                => `((,default (one . #t))))
 (check (input "one=2")              => `((,default (one . 2))))
 (check (input "one=two")            => `((,default (one . "two"))))
-(check (input "one=\"two\"")        => `((,default (one . "\"two\""))))
+(check (input "one=\"two\"")        => `((,default (one . "two"))))
 (check (input "one=  two  ")        => `((,default (one . "two"))))
 (check (input "1  =  two  3  ")     => `((,default (|1| . "two  3"))))
 (check (input "one = two
@@ -43,7 +43,7 @@
 
 ;; test file from wikipedia
 (check (read-ini "example.ini")
-  => `((database (file . "\"payroll.dat\"")
+  => `((database (file . "payroll.dat")
                  (port . 143)
                  (server . "192.0.2.62"))
        (owner    (organization . "Acme Widgets Inc.")

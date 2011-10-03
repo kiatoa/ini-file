@@ -36,7 +36,7 @@
 ;;   If `file-or-port` is a port, it is not closed.
 
 (module ini-file
-  (read-ini write-ini
+  (read-ini write-ini read-property
    default-section property-separator
    allow-empty-values? allow-bare-properties?)
   (import (except scheme newline)
@@ -95,13 +95,13 @@
                                        (loop))))))))))
 
   ;; Character matching.
-  (define-syntax match
+  (define-syntax one-of
     (syntax-rules (not)
       ((_ (not <p> ...))      (lambda (a) (and (not (<p> a)) ...)))
       ((_ <p>)                (lambda (a) (<p> a)))
-      ((_ <p1> <p2> <pn> ...) (lambda (a) (or ((match <p1>) a)
-                                              ((match <p2>) a)
-                                              ((match <pn>) a) ...)))))
+      ((_ <p1> <p2> <pn> ...) (lambda (a) (or ((one-of <p1>) a)
+                                              ((one-of <p2>) a)
+                                              ((one-of <pn>) a) ...)))))
 
   (define (char . chars)
     (lambda (c) (memq c chars)))
@@ -110,8 +110,8 @@
   (define newline     (char #\newline))
   (define comment     (char #\# #\;))
   (define separator   (char #\= #\:))
-  (define whitespace  (match eof char-whitespace?))
-  (define terminal    (match eof newline comment))
+  (define whitespace  (one-of eof char-whitespace?))
+  (define terminal    (one-of eof newline comment))
 
   ;; Discard comments and whitespace from the port.
   (define (move-to-next-token port)
@@ -119,67 +119,79 @@
       (cond ((eof ch)        (void))
             ((whitespace ch) (read-char port)
                              (move-to-next-token port))
-            ((comment ch)    (read-until (match eof newline) port)
+            ((comment ch)    (read-until (one-of eof newline) port)
                              (move-to-next-token port)))))
 
   ;; Read a single INI directive from the port.
   ;; Returns either a symbol (if a section header) or a pair (if a property).
   (define (read-directive port)
-    (if (equal? #\[ (peek-char port))
-      (read-section-header port)
-      (read-property port)))
-
-  ;; Read a property name as a symbol.
-  (define (read-property-name port)
-    (let* ((str (read-until (match separator terminal) port))
-           (key (string-trim-right str)))
-      (if (> (string-length key) 0)
-        (string->symbol key)
-        (ini-error 'read-ini
-                   "Property name expected"
-                   (read-until terminal port)))))
+   (if (eq? #\[ (peek-char port))
+     (read-section-header port)
+     (read-property port)))
 
   ;; Read a bracket-enclosed section header as a symbol.
   (define (read-section-header port)
     (string->symbol
       (with-output-to-string
         (lambda ()
+          (read-char port)
           (handle-exceptions exn
             (ini-error 'read-ini "Malformed section header")
-            (read-char port)
-            (display (read-until (char #\]) port terminal))
-            (read-char port))))))
+            (let ((sec (read-until (char #\]) port)))
+              (or (and (> (string-length sec) 0)
+                       (display sec))
+                  (error))))
+          (read-char port)))))
 
   ;; Read a single property from the port.
   ;; Returns a name/value pair.
-  (define (read-property port)
-    (let ((key (read-property-name port))
-          (sep (read-char port)))
-      (cond ((terminal sep)
-             ;; If allowed, single-term
-             ;; properties are taken to be #t.
-             (if (allow-bare-properties?)
-               (cons key #t)
-               (ini-error 'read-ini "Malformed property" key)))
-            ((separator sep)
-             (handle-exceptions exn
-               ;; If not allowed, an empty
-               ;; property value will signal an error.
-               (ini-error 'read-ini "No value given for property" key)
-               (if (allow-empty-values?)
-                 (read-until (match terminal (not whitespace)) port)
-                 (read-until (match (not terminal whitespace)) port terminal)))
-             (let ((val (string-trim-right (read-until terminal port))))
-               (cons key (or (string->number val) val)))))))
+  (define read-property
+    (case-lambda
+      (() (read-property (current-input-port)))
+      ((port)
+       (let* ((name (read-until (one-of separator terminal) port))
+              (key (string->symbol (string-trim-right name)))
+              (sep (read-char port)))
+         (cond ((zero? (string-length name))
+                (ini-error 'read-ini
+                           "Property name expected"
+                           (read-until terminal port)))
+               ;; If allowed, single-term
+               ;; properties are taken to be #t.
+               ((terminal sep)
+                (if (allow-bare-properties?)
+                  (cons key #t)
+                  (ini-error 'read-ini "Malformed property" key)))
+               ((separator sep)
+                ;; Skip to next non-whitespace token.
+                ;; If empty values aren't allowed, a
+                ;; terminal character will signal an error.
+                (handle-exceptions exn
+                  (ini-error 'read-ini "No value given for property" key)
+                  (if (allow-empty-values?)
+                    (read-until (one-of (not whitespace) terminal) port)
+                    (read-until (one-of (not whitespace terminal)) port terminal)))
+                ;; Try reading the value as
+                ;; a quoted string, number,
+                ;; or string (in that order).
+                (case (peek-char port)
+                  ;; Quoted strings are read as such.
+                  ((#\") (cons key (read port)))
+                  ;; Otherwise, read until the next
+                  ;; newline and return a number or string.
+                  (else (let ((val (string-trim-right (read-until terminal port))))
+                          (cons key (or (string->number val) val)))))))))))
 
   ;; cons a new section or property onto the configuration alist.
   (define (cons-directive dir alist)
-    (cond ((symbol? dir) (cons (list dir) alist))
-          ((pair? dir) (if (null? alist)
-                         (cons-directive dir `((,(default-section))))
-                         (cons (cons (caar alist)
-                                     (cons dir (cdar alist)))
-                               (cdr alist))))))
+    (cond ((symbol? dir)
+           (cons (list dir) alist))
+          ((pair? dir)
+           (if (null? alist)
+             (cons-directive dir `((,(default-section))))
+             (cons (cons (caar alist)
+                         (cons dir (cdar alist)))
+                   (cdr alist))))))
 
   ;; Read an INI configuration file as an alist of alists.
   ;; If input is a port, it is not closed.
