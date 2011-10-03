@@ -36,7 +36,9 @@
 ;;   If `file-or-port` is a port, it is not closed.
 
 (module ini-file
-  (read-ini write-ini default-section property-separator)
+  (read-ini write-ini
+   default-section property-separator
+   allow-empty-values? allow-bare-properties?)
   (import (except scheme newline)
           (only ports with-input-from-string with-output-to-string)
           (only chicken void case-lambda make-parameter parameterize
@@ -48,6 +50,12 @@
 
   ;; Property name/value separator to use when writing.
   (define property-separator (make-parameter #\=))
+
+  ;; Is the empty string is a valid value?
+  (define allow-empty-values? (make-parameter #f))
+
+  ;; Are single-term properties allowed?
+  (define allow-bare-properties? (make-parameter #t))
 
   ;; Simple string trim, as in srfi-13.
   (define (string-trim-right str)
@@ -147,11 +155,20 @@
   (define (read-property port)
     (let ((key (read-property-name port))
           (sep (read-char port)))
-      (cond ((terminal sep) (cons key #t))
+      (cond ((terminal sep)
+             ;; If allowed, single-term
+             ;; properties are taken to be #t.
+             (if (allow-bare-properties?)
+               (cons key #t)
+               (ini-error 'read-ini "Malformed property" key)))
             ((separator sep)
              (handle-exceptions exn
+               ;; If not allowed, an empty
+               ;; property value will signal an error.
                (ini-error 'read-ini "No value given for property" key)
-               (read-until (match (not whitespace terminal)) port terminal))
+               (if (allow-empty-values?)
+                 (read-until (match terminal (not whitespace)) port)
+                 (read-until (match (not terminal whitespace)) port terminal)))
              (let ((val (string-trim-right (read-until terminal port))))
                (cons key (or (string->number val) val)))))))
 
