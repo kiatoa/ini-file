@@ -9,16 +9,26 @@
   (syntax-rules ()
     ((_ <e>) (condition-case <e> ((exn ini) #t)))))
 
+;; permissive defaults
+(allow-empty-values? #t)
+(allow-bare-properties? #t)
+
 ;; valid input
 (check (input "")                   => '())
 (check (input "; comment")          => '())
 (check (input "[section]")          => '((section)))
 (check (input "[sec tion]")         => '((|sec tion|)))
 (check (input "one")                => `((,default (one . #t))))
+(check (input "one=     ")          => `((,default (one . ""))))
+(check (input "one=# two")          => `((,default (one . ""))))
 (check (input "one=2")              => `((,default (one . 2))))
+(check (input "one=-2")             => `((,default (one . -2))))
+(check (input "one=0.2")            => `((,default (one . 0.2))))
 (check (input "one=two")            => `((,default (one . "two"))))
-(check (input "one=\"two\"")        => `((,default (one . "two"))))
 (check (input "one=  two  ")        => `((,default (one . "two"))))
+(check (input "one two = three ")   => `((,default (|one two| . "three"))))
+(check (input "one=\" two \"")      => `((,default (one . " two "))))
+(check (input "one=\"\"two\"\"")    => `((,default (one . "\"two\""))))
 (check (input "1  =  two  3  ")     => `((,default (|1| . "two  3"))))
 (check (input "one = two
                [section]
@@ -26,11 +36,14 @@
                                          (,default (one . "two"))))
 
 ;; malformed input
-(check (fails? (input "[section"))  => #t)
+(allow-empty-values? #f)
+(allow-bare-properties? #f)
+(check (fails? (input "one"))       => #t)
 (check (fails? (input "one="))      => #t)
 (check (fails? (input "one=#"))     => #t)
 (check (fails? (input "=two"))      => #t)
 (check (fails? (input "one=\ntwo")) => #t)
+(check (fails? (input "one=\"two\nthree\"")) => #t)
 
 ;; valid output
 (check (output '())                              => "")
@@ -52,6 +65,6 @@
 ;; roundtrip
 (check (input (output (read-ini "example.ini"))) => (read-ini "example.ini"))
 
-(if (not (check-passed? 25))
+(if (not (check-passed? 32))
   (begin (check-report)
          (error 'ini-file "Failed to pass test suite")))
