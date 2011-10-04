@@ -36,7 +36,7 @@
 ;;   If `file-or-port` is a port, it is not closed.
 
 (module ini-file
-  (read-ini write-ini
+  (read-ini write-ini read-property
    default-section property-separator
    allow-empty-values? allow-bare-properties?)
   (import scheme chicken extras ports regex)
@@ -77,55 +77,61 @@
      (begin body ...))
     ((_ str) (void))))
 
-(define (read-directive port)
-  (let ((line (read-line port)))
-    (match-string line
-      ;; Section header.
-      ((" *\\[(.*?)\\] *([;#].*)?" section comment)
-       (string->symbol section))
-      ;; Name/value pair.
-      (("([^:;=#]+?) *[:=] *(.*?) *" name value)
-       (let ((name (string->symbol name)))
-         (let lp ((value value))
-           (match-string value
-             ;; Quoted string.
-             (("\"(.*?)\"" value)
-              (cons name value))
-             ;; Number.
-             (("[-+]?[0-9]+\\.?[0-9]*")
-              (cons name (with-input-from-string value read)))
-             ;; Trailing comment.
-             (("(.*?) *[;#].*" match)
-              (lp match))
-             (else
-              (cond
-                ((allow-empty-values?)
+;; Read a single property from the port.
+;; If it's a section header, returns a symbol.
+;; If it's a name/value pair, returns a pair.
+(define read-property
+  (case-lambda
+    (() (read-property (current-input-port)))
+    ((port)
+     (let ((line (read-line port)))
+       (match-string line
+         ;; Section header.
+         ((" *\\[(.*?)\\] *([;#].*)?" section comment)
+          (string->symbol section))
+         ;; Name/value pair.
+         (("([^:;=#]+?) *[:=] *(.*?) *" name value)
+          (let ((name (string->symbol name)))
+            (let lp ((value value))
+              (match-string value
+                ;; Quoted string.
+                (("\"(.*?)\"" value)
                  (cons name value))
-                ((zero? (string-length value))
-                 (ini-error
-                   'read-ini
-                   "Empty value"
-                   line))
+                ;; Number.
+                (("[-+]?[0-9]+\\.?[0-9]*")
+                 (cons name (with-input-from-string value read)))
+                ;; Trailing comment.
+                (("(.*?) *[;#].*" match)
+                 (lp match))
                 (else
-                 (cons name value))))))))
-      ;; Unrecognized.
-      (else
-       (if (allow-bare-properties?)
-         (cons (string->symbol line) #t)
-         (ini-error
-           'read-ini
-           "Malformed INI directive"
-           line))))))
+                 (cond
+                   ((allow-empty-values?)
+                    (cons name value))
+                   ((zero? (string-length value))
+                    (ini-error
+                      'read-ini
+                      "Empty value"
+                      line))
+                   (else
+                    (cons name value))))))))
+         ;; Unrecognized.
+         (else
+          (if (allow-bare-properties?)
+            (cons (string->symbol line) #t)
+            (ini-error
+              'read-ini
+              "Malformed INI directive"
+              line))))))))
 
 ;; cons a new section or property onto the configuration alist.
-(define (cons-directive dir alist)
-  (cond ((symbol? dir)
-         (cons (list dir) alist))
-        ((pair? dir)
+(define (cons-property p alist)
+  (cond ((symbol? p)
+         (cons (list p) alist))
+        ((pair? p)
          (if (null? alist)
-           (cons-directive dir `((,(default-section))))
+           (cons-property p `((,(default-section))))
            (cons (cons (caar alist)
-                       (cons dir (cdar alist)))
+                       (cons p (cdar alist)))
                  (cdr alist))))))
 
 ;; Discard comments and
@@ -153,8 +159,8 @@
               (chomp in)
               (if (eof-object? (peek-char in))
                 alist
-                (lp (cons-directive
-                      (read-directive in)
+                (lp (cons-property
+                      (read-property in)
                       alist)))))
            (else (error 'read-ini
                         "Argument is neither a file nor input port"
