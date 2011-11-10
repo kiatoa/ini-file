@@ -19,16 +19,23 @@ zero- and one-valued properties).
 
 ==== API
 
+<procedure>(read-property [port])</procedure>
+
+Reads a single INI property from {{file-or-port}}. If it is a section header,
+returns a symbol. If it is a property or property/value pair, a pair is
+returned. Invalid properties will signal an error.
+
+Numeric values and quoted strings are read as such; everything else is treated
+as a string literal.
+
 <procedure>(read-ini [file-or-port])</procedure>
 
 Reads configuration directives from {{file-or-port}} until {{#!eof}},
 returning an alist of alists corresponding hierarchically to the
 source INI's SECTION -> PROPERTY -> VALUE structure.
 
-Numeric values are read as such; everything else is treated
-as a string literal. Properties appearing before any section
-heading are placed in an alist under the key given by the
-{{default-section}} parameter.
+Properties appearing before any section heading are associated
+with the key given by the {{default-section}} parameter.
 
 If {{file-or-port}} is a port, it is not closed.
 
@@ -48,14 +55,24 @@ If {{file-or-port}} is a port, it is not closed.
 
 <parameter>(default-section [name])</parameter>
 
-Specifies the default section name (usually a symbol) under
-which properties without a section label will be placed when read
-by {{read-ini}}. Defaults to {{'default}}.
+Specifies the default alist key (usually a symbol) under which properties
+without a section label will be placed {{read-ini}}. Defaults to {{'default}}.
 
 <parameter>(property-separator [char-or-string])</parameter>
 
-Specifies the character or string to be used by {{write-ini}}
-to separate property names & values. Defaults to {{#\=}}.
+Specifies the character or string to be used by {{write-ini}} to separate
+property names & values. Defaults to {{#\=}}.
+
+<parameter>(allow-empty-values? [boolean])</parameter>
+
+Specifies whether the empty string should be treated as a valid property value.
+If {{#f}}, an empty value will signal an error. Defaults to {{#f}}.
+
+<parameter>(allow-bare-properties? [boolean])</parameter>
+
+Specifies whether "bare" properties (those without a value) should be allowed.
+If {{#f}}, a line not following "key separator value" format will signal an
+error. Defaults to {{#t}}, making the default parsing behavior very forgiving.
 
 === Example
 
@@ -94,6 +111,7 @@ Note that separate sections of the same name are not merged.
 
 === History
 
+* 0.2 Use regex unit
 * 0.1 Initial release
 
 === Author
@@ -102,28 +120,4 @@ Note that separate sections of the same name are not merged.
 
 === License
 
-  Copyright (c) 2011, Evan Hanson
-  All rights reserved.
-  
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
-  
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * The name of the author may not be used to endorse or promote products
-      derived from this software without specific prior written permission.
-  
-  THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
-  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-  USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Copyright (c) 2011 Evan Hanson, 3-Clause BSD.

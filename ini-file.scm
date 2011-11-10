@@ -10,16 +10,23 @@
 ;; features. This module handles a very small subset of those.
 ;; See http://wikipedia.org/wiki/INI_file for more information.
 ;;
+;; (read-property [port])
+;;
+;;   Reads a single INI property from `file-or-port`. If it is a section header,
+;;   returns a symbol. If it is a property or property/value pair, a pair is
+;;   returned. An invalid line will signal an error.
+;;
+;;   Numeric values and quoted strings are read as such; everything else is treated
+;;   as a string literal.
+;;
 ;; (read-ini [file-or-port])
 ;;
 ;;   Reads configuration directives from `file-or-port` until #!eof,
 ;;   returning an alist of alists corresponding hierarchically to
 ;;   the source INI's SECTION -> PROPERTY -> VALUE structure.
 ;;
-;;   Numeric values are read as such; everything else is treated
-;;   as a string literal. Properties appearing before any section
-;;   heading are placed in an alist under the key given by the
-;;   `default-section` parameter.
+;;   Properties appearing before any section heading are associated
+;;   with the key given by the `default-section` parameter.
 ;;
 ;;   If `file-or-port` is a port, it is not closed.
 ;;
