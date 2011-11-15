@@ -17,6 +17,8 @@ INI syntax as a whole is underspecified and its implementations vary.
 This egg supports only its most basic features (comments, sections,
 zero- and one-valued properties).
 
+The source for this egg is available at [[http://github.com/evhan/ini-file]].
+
 ==== API
 
 <procedure>(read-property [port])</procedure>
