@@ -23,7 +23,7 @@ The source for this egg is available at [[http://github.com/evhan/ini-file]].
 
 <procedure>(read-property [port])</procedure>
 
-Reads a single INI property from {{file-or-port}}. If it is a section header,
+Reads a single INI property from {{port}}. If it is a section header,
 returns a symbol. If it is a property or property/value pair, a pair is
 returned. Invalid properties will signal an error.
 
