@@ -46,8 +46,8 @@
   (read-ini write-ini read-property
    default-section property-separator
    allow-empty-values? allow-bare-properties?)
-  (import scheme chicken extras ports irregex)
-  (require-library irregex)
+  (import scheme chicken extras ports regex)
+  (require-library regex)
 
 ;; Default section name, under which to put unlabeled properties when reading.
 (define default-section (make-parameter 'default))
@@ -70,23 +70,12 @@
                                      'message   msg
                                      'arguments args))))
 
-;; From regex.
-(define (string-match rx str)
-  (and-let* ((m (irregex-match rx str)))
-    (let loop ((i (irregex-match-num-submatches m))
-               (res '()))
-      (if (fx<= i 0)
-        (cons str res)
-        (loop (fx- i 1)
-              (cons (irregex-match-substring m i)
-                    res))))))
-
 ;; cond-like syntax for
 ;; regular-expression matching.
 (define-syntax match-string
   (syntax-rules (else)
     ((_ str ((pat lst ...) body ...) tail ...)
-     (let ((match (string-match (irregex pat) str)))
+     (let ((match (string-match (regexp pat) str)))
        (if (not match)
          (match-string str tail ...)
          (apply (lambda (lst ...) body ...)

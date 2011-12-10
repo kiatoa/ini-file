@@ -2,5 +2,6 @@
  (category parsing)
  (author "Evan Hanson")
  (synopsis "Read & write INI configuration files")
+ (depends regex)
  (test-depends srfi-78)
  (doc-from-wiki))
