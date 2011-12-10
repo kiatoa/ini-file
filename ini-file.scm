@@ -61,6 +61,16 @@
 ;; Are single-term properties allowed?
 (define allow-bare-properties? (make-parameter #t))
 
+;; Special-case value mappings (for booleans, etc.).
+(define value-map
+  (make-parameter
+    '(("true"  . #t)
+      ("false" . #f))))
+
+;; Swap the value map for reading/writing.
+(define (invert alist)
+  (map cons (map cdr alist) (map car alist)))
+
 ;; Signal a parsing error.
 (define (ini-error loc msg . args)
   (signal (make-composite-condition
@@ -120,7 +130,10 @@
                       "Empty value"
                       line))
                    (else
-                    (cons name value))))))))
+                    (let ((mapped (assoc value (value-map))))
+                      (if mapped
+                        (cons name (cdr mapped))
+                        (cons name value))))))))))
          ;; Unrecognized.
          (else
           (if (allow-bare-properties?)
@@ -184,26 +197,30 @@
               (lambda (file) (write-ini alist file))))
            ((output-port? out)
             (parameterize ((current-output-port out))
-              (let loop ((lst alist))
-                (cond ((null? lst) (void))
-                      ((list? lst)
-                       (if (not (symbol? (car lst)))
-                         (for-each loop (reverse lst))
-                         (begin (for-each
-                                  display
-                                  (list #\[ (car lst) #\]
-                                        #\newline))
-                                (loop (cdr lst))
-                                (display #\newline))))
-                      ((pair? lst)
-                       (for-each display
-                                 (list (car lst)
-                                       (property-separator)
-                                       (cdr lst)
-                                       #\newline)))
-                      (else (ini-error 'write-ini
-                                       "Malformed INI property list"
-                                       lst))))))
-           (else (error 'write-ini
-                        "Argument is neither a file nor output port"
-                        out)))))))
+              (let ((vmap (invert (value-map))))
+                (let loop ((lst alist))
+                  (cond ((null? lst) (void))
+                        ((list? lst)
+                         (if (not (symbol? (car lst)))
+                           (for-each loop (reverse lst))
+                           (begin (for-each
+                                    display
+                                    (list #\[ (car lst) #\]
+                                          #\newline))
+                                  (loop (cdr lst))
+                                  (display #\newline))))
+                        ((pair? lst)
+                         (for-each display
+                                   (list (car lst)
+                                         (property-separator)
+                                         (let ((mapped (assoc (cdr lst) vmap)))
+                                           (if mapped
+                                             (cdr mapped)
+                                             (cdr lst)))
+                                         #\newline)))
+                        (else (ini-error 'write-ini
+                                         "Malformed INI property list"
+                                         lst)))))))
+             (else (error 'write-ini
+                          "Argument is neither a file nor output port"
+                          out)))))))

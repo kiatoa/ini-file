@@ -45,6 +45,13 @@
 (check (fails? (input "one=\ntwo")) => #t)
 (check (fails? (input "one=\"two\nthree\"")) => #t)
 
+;; value mapping
+(default-section 'ini)
+(check (input "one = true")         => '((ini (one . #t))))
+(check (input "one = false")        => '((ini (one . #f))))
+(check (output '(one . #t))         => "one=true\n")
+(check (output '(one . #f))         => "one=false\n")
+
 ;; valid output
 (check (output '())                              => "")
 (check (output '(one . 2))                       => "one=2\n")
@@ -65,6 +72,6 @@
 ;; roundtrip
 (check (input (output (read-ini "example.ini"))) => (read-ini "example.ini"))
 
-(if (not (check-passed? 32))
+(if (not (check-passed? 36))
   (begin (check-report)
          (error 'ini-file "Failed to pass test suite")))
