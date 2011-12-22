@@ -29,7 +29,7 @@
 (define allow-empty-values? (make-parameter #f))
 
 ;; Are single-term properties allowed?
-(define allow-bare-properties? (make-parameter #t))
+(define allow-bare-properties? (make-parameter #f))
 
 ;; Special-case value mappings (for booleans, etc.).
 (define property-value-map
