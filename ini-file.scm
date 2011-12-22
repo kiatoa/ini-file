@@ -10,41 +10,11 @@
 ;; features. This module handles a very small subset of those.
 ;; See http://wikipedia.org/wiki/INI_file for more information.
 ;;
-;; (read-property [port])
-;;
-;;   Reads a single INI property from `file-or-port`. If it is a section header,
-;;   returns a symbol. If it is a property or property/value pair, a pair is
-;;   returned. An invalid line will signal an error.
-;;
-;;   Numeric values and quoted strings are read as such; everything else is treated
-;;   as a string literal.
-;;
-;; (read-ini [file-or-port])
-;;
-;;   Reads configuration directives from `file-or-port` until #!eof,
-;;   returning an alist of alists corresponding hierarchically to
-;;   the source INI's SECTION -> PROPERTY -> VALUE structure.
-;;
-;;   Properties appearing before any section heading are associated
-;;   with the key given by the `default-section` parameter.
-;;
-;;   If `file-or-port` is a port, it is not closed.
-;;
-;; (write-ini alist [file-or-port])
-;;
-;;   Writes `alist` as INI directives to `file-or-port`.
-;;
-;;   A symbol at the head of `alist` signifies a section of that name.
-;;   The write order of sections and properties is reverse that of `alist`.
-;;
-;;   The `property-separator` parameter specifies the character or
-;;   string with which to separate property names & values.
-;;
-;;   If `file-or-port` is a port, it is not closed.
+;; See http://wiki.call-cc.org/egg/ini-file for documentation.
 
 (module ini-file
   (read-ini write-ini read-property
-   default-section property-separator
+   default-section property-separator property-value-map
    allow-empty-values? allow-bare-properties?)
   (import scheme chicken extras ports regex)
   (require-library regex)
@@ -62,7 +32,7 @@
 (define allow-bare-properties? (make-parameter #t))
 
 ;; Special-case value mappings (for booleans, etc.).
-(define value-map
+(define property-value-map
   (make-parameter
     '(("true"  . #t)
       ("false" . #f))))
@@ -130,7 +100,7 @@
                       "Empty value"
                       line))
                    (else
-                    (let ((mapped (assoc value (value-map))))
+                    (let ((mapped (assoc value (property-value-map))))
                       (if mapped
                         (cons name (cdr mapped))
                         (cons name value))))))))))
@@ -197,7 +167,7 @@
               (lambda (file) (write-ini alist file))))
            ((output-port? out)
             (parameterize ((current-output-port out))
-              (let ((vmap (invert (value-map))))
+              (let ((vmap (invert (property-value-map))))
                 (let loop ((lst alist))
                   (cond ((null? lst) (void))
                         ((list? lst)
