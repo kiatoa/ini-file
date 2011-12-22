@@ -27,8 +27,9 @@ Reads a single INI property from {{port}}. If it is a section header,
 returns a symbol. If it is a property or property/value pair, a pair is
 returned. Invalid properties will signal an error.
 
-Numeric values and quoted strings are read as such; everything else is treated
-as a string literal.
+Numeric values and quoted strings are read as Scheme data; everything else is
+treated as a string. Any such string mapped by the {{property-value-map}}
+parameter will be replaced by its corresponding value.
 
 <procedure>(read-ini [file-or-port])</procedure>
 
@@ -46,10 +47,13 @@ If {{file-or-port}} is a port, it is not closed.
 Writes {{alist}} as INI directives to {{file-or-port}}.
 
 A symbol at the head of {{alist}} signifies a section of that name.
-The write order of {{alist}}'s properties is reverse that of {{alist}}.
+The write order of sections and properties is reverse that of {{alist}}.
 
 The {{property-separator}} parameter specifies the character or
 string with which to separate property names & values.
+
+Any value mapped to by the {{property-value-map}} parameter will be
+replaced by its first corresponding key.
 
 If {{file-or-port}} is a port, it is not closed.
 
@@ -58,12 +62,23 @@ If {{file-or-port}} is a port, it is not closed.
 <parameter>(default-section [name])</parameter>
 
 Specifies the default alist key (usually a symbol) under which properties
-without a section label will be placed {{read-ini}}. Defaults to {{'default}}.
+without a section label will be placed by {{read-ini}}. Defaults to
+{{'default}}.
 
 <parameter>(property-separator [char-or-string])</parameter>
 
 Specifies the character or string to be used by {{write-ini}} to separate
 property names & values. Defaults to {{#\=}}.
+
+<parameter>(property-value-map [alist])</parameter>
+
+Specifies an alist mapping strings to Scheme values, used to translate INI
+values to & from Scheme data when reading & writing INI files.
+
+The default map is simply:
+
+    '(("true"  . #t)
+      ("false" . #f))
 
 <parameter>(allow-empty-values? [boolean])</parameter>
 
@@ -74,7 +89,7 @@ If {{#f}}, an empty value will signal an error. Defaults to {{#f}}.
 
 Specifies whether "bare" properties (those without a value) should be allowed.
 If {{#f}}, a line not following "key separator value" format will signal an
-error. Defaults to {{#t}}, making the default parsing behavior very forgiving.
+error. Defaults to {{#f}}.
 
 === Example
 
@@ -105,14 +120,15 @@ Git uses INI syntax for its configuration files. From {{man git-config}}:
     (read-ini ".git/config")
     ; => ((core (gitproxy . "default-proxy")
     ;           (gitproxy . "\"proxy-command\" for kernel.org"))
-    ;     (diff (renames  . "true")
+    ;     (diff (renames  . #t)
     ;           (external . "/usr/local/bin/diff-wrapper"))
-    ;     (core (filemode . "false")))
+    ;     (core (filemode . #f)))
 
 Note that separate sections of the same name are not merged.
 
 === History
 
+* 0.3 Introduce property-value-map parameter
 * 0.2 Use regex unit
 * 0.1 Initial release
 
