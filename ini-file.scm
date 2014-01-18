@@ -14,8 +14,8 @@
 
 (module ini-file
   (read-ini write-ini read-property
-   default-section property-separator property-value-map
-   allow-empty-values? allow-bare-properties?)
+   default-section property-separator property-separator-patt
+   property-value-map allow-empty-values? allow-bare-properties?)
   (import scheme chicken extras ports regex)
   (require-library regex)
 
@@ -24,6 +24,9 @@
 
 ;; Property name/value separator to use when writing.
 (define property-separator (make-parameter #\=))
+
+;; Property name/value separator pattern to use when reading
+(define property-separator-patt (make-parameter " *[:=] *"))
 
 ;; Is the empty string is a valid value?
 (define allow-empty-values? (make-parameter #f))
@@ -71,13 +74,14 @@
   (case-lambda
     (() (read-property (current-input-port)))
     ((port)
-     (let ((line (read-line port)))
+     (let ((line            (read-line port))
+	   (name-value-patt (string-append "([^:;=#]+?)" (property-separator-patt) "(.*?) *")))
        (match-string line
          ;; Section header.
          ((" *\\[(.*?)\\] *([;#].*)?" section comment)
           (string->symbol section))
          ;; Name/value pair.
-         (("([^:;=#]+?) *[:=] *(.*?) *" name value)
+         ((name-value-patt name value)
           (let ((name (string->symbol name)))
             (let lp ((value value))
               (match-string value
