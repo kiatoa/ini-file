@@ -17,7 +17,8 @@ INI syntax as a whole is underspecified and its implementations vary.
 This egg supports only its most basic features (comments, sections,
 zero- and one-valued properties).
 
-The source for this egg is available at [[http://github.com/evhan/ini-file]].
+The source for this egg is available at [[http://github.com/kiatoa/ini-file]]. Previously at 
+[[http://github.com/evhan/ini-file]].
 
 ==== API
 
@@ -52,6 +53,9 @@ The write order of sections and properties is reverse that of {{alist}}.
 The {{property-separator}} parameter specifies the character or
 string with which to separate property names & values.
 
+The {{property-separator-patt}} parameter specifies the regex speparator pattern 
+for which to separate property names & values when reading.
+
 Any value mapped to by the {{property-value-map}} parameter will be
 replaced by its first corresponding key.
 
@@ -69,6 +73,11 @@ without a section label will be placed by {{read-ini}}. Defaults to
 
 Specifies the character or string to be used by {{write-ini}} to separate
 property names & values. Defaults to {{#\=}}.
+
+<parameter>(property-separator-patt [string-or-regex])</parameter>
+
+Specifies the character or string to be used by {{read-ini}} to separate
+property names & values. Defaults to {{" * *"}}.
 
 <parameter>(property-value-map [alist])</parameter>
 
