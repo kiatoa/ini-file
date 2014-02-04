@@ -1,7 +1,11 @@
 (repo git "git://github.com/kiatoa/{egg-name}.git")
 (uri targz "https://github.com/kiatoa/{egg-name}/tarball/{egg-release}")
+(release "0.3.4")
+
+;; old releases
+(repo git "git://github.com/evhan/{egg-name}.git")
+(uri targz "https://github.com/evhan/{egg-name}/tarball/{egg-release}")
 (release "0.1")
 (release "0.1.2")
 (release "0.2.2")
 (release "0.3.0")
-(release "0.3.4")
