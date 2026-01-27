@@ -1,4 +1,9 @@
-(use srfi-78 ini-file)
+(use srfi-78 ports extras)
+
+; test using ini-file in workspace
+(include "../ini-file.scm")
+
+(import ini-file)
 
 (define default (default-section))
 

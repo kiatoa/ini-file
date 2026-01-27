@@ -67,59 +67,120 @@
      (begin body ...))
     ((_ str) (void))))
 
+
+;; system and other macros  produce lines to be used.  These do not come
+;; from the input port.  the stuffed-lines parameter keeps a list
+;; of lines that have been stuffed in to preempt the input port when
+;; getting the next line of input
+(define stuffed-lines (make-parameter (list)))
+
+
+;; Discard comments and
+;; whitespace from the string.
+(define (chomp-str line)
+  (string-substitute*
+   line
+   '( ("[;#].*" . "") ("\\s+$" . "") ) ))
+
+;; process line, search for macros, then hand off line
+;; if macro generates new lines, add them to stuffed-lines parameter
+(define (preprocess-line rawline)
+  (let ((line (chomp-str rawline)))
+    (match-string
+     line
+     ;; include)
+     (("\\s*\\[\\s*include\\s+([^\\]]+?)\\s*\\]" include-file)
+      (let* ((all-lines (read-lines include-file))
+             (first-line (if (null? all-lines) "" (car all-lines)))
+             (rest-lines (if (null? all-lines) '() (cdr all-lines)))
+             (prev-stuffed-lines (stuffed-lines))
+             )
+        (stuffed-lines (append rest-lines prev-stuffed-lines))
+        (preprocess-line first-line)))
+
+     ;; no macros; pass it along unmolested
+     (else line))))
+  
+  
+  ;; get next line and preprocess it;
+  ;;  1) check stuffed-lines parameter to preempt input port
+  ;;  2) run preprocessor to handle new macros
+(define (read-and-preprocess-line port)
+  (if (null? (stuffed-lines))
+      (preprocess-line (read-line port))
+      (let* ((temp-lines (stuffed-lines))
+             (next-stuffed-line (car temp-lines))
+             (rest-stuffed-lines (cdr temp-lines)))
+        (stuffed-lines rest-stuffed-lines)
+        (preprocess-line next-stuffed-line))))
+
+
+
 ;; Read a single property from the port.
 ;; If it's a section header, returns a symbol.
 ;; If it's a name/value pair, returns a pair.
+;; If it's a blank line, returns #f
 (define read-property
   (case-lambda
     (() (read-property (current-input-port)))
     ((port)
-     (let ((line            (read-line port))
-	   (name-value-patt (string-append "([^:;=#]+?)" (property-separator-patt) "(.*?) *")))
-       (match-string line
-         ;; Section header.
-         ((" *\\[(.*?)\\] *([;#].*)?" section comment)
-          (string->symbol section))
-         ;; Name/value pair.
-         ((name-value-patt name value)
-          (let ((name (string->symbol name)))
-            (let lp ((value value))
-              (match-string value
-                ;; Quoted string.
-                (("\"(.*?)\"" value)
+     (let ((line
+            (read-and-preprocess-line port))
+	   (name-value-patt
+            (string-append
+             "([^:;=#]+?)"
+             (property-separator-patt)
+             "(.*?) *")))
+       (match-string
+        line
+
+        ;; Empty string. 
+        (("") #f)
+        ;; Section header.
+        ((" *\\[(.*?)\\] *([;#].*)?" section comment)
+         (string->symbol section))
+        ;; Name/value pair.
+        ((name-value-patt name value)
+         (let ((name (string->symbol name)))
+           (let lp ((value value))
+             (match-string
+              value
+              ;; Quoted string.
+              (("\"(.*?)\"" value)
+               (cons name value))
+              ;; Number.
+              (("[-+]?[0-9]+\\.?[0-9]*")
+               (cons name (with-input-from-string value read)))
+              ;; Trailing comment.
+              (("(.*?) *[;#].*" match)
+               (lp match))
+              (else
+               (cond
+                ((allow-empty-values?)
                  (cons name value))
-                ;; Number.
-                (("[-+]?[0-9]+\\.?[0-9]*")
-                 (cons name (with-input-from-string value read)))
-                ;; Trailing comment.
-                (("(.*?) *[;#].*" match)
-                 (lp match))
+                ((zero? (string-length value))
+                 (ini-error
+                  'read-ini
+                  "Empty value"
+                  line))
                 (else
-                 (cond
-                   ((allow-empty-values?)
-                    (cons name value))
-                   ((zero? (string-length value))
-                    (ini-error
-                      'read-ini
-                      "Empty value"
-                      line))
-                   (else
-                    (let ((mapped (assoc value (property-value-map))))
-                      (if mapped
-                        (cons name (cdr mapped))
-                        (cons name value))))))))))
-         ;; Unrecognized.
-         (else
-          (if (allow-bare-properties?)
-            (cons (string->symbol line) #t)
-            (ini-error
+                 (let ((mapped (assoc value (property-value-map))))
+                   (if mapped
+                       (cons name (cdr mapped))
+                       (cons name value))))))))))
+        ;; Unrecognized.
+        (else
+         (if (allow-bare-properties?)
+             (cons (string->symbol line) #t)
+             (ini-error
               'read-ini
               "Malformed INI directive"
               line))))))))
 
 ;; cons a new section or property onto the configuration alist.
 (define (cons-property p alist)
-  (cond ((symbol? p)
+  (cond ((not p) alist)
+        ((symbol? p)
          (cons (list p) alist))
         ((pair? p)
          (if (null? alist)
@@ -151,11 +212,14 @@
            ((input-port? in)
             (let lp ((alist `()))
               (chomp in)
-              (if (eof-object? (peek-char in))
-                alist
-                (lp (cons-property
-                      (read-property in)
-                      alist)))))
+              (if
+               (and
+                (null? (stuffed-lines))
+                (eof-object? (peek-char in)))
+               alist
+               (lp (cons-property
+                    (read-property in)
+                    alist)))))
            (else (error 'read-ini
                         "Argument is neither a file nor input port"
                         in))))))

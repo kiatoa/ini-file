@@ -1,0 +1,6 @@
+*.c
+*.o
+*.so
+*.import.scm
+tests/run2
+tests/run
