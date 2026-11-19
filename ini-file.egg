@@ -1,0 +1,5 @@
+((version "0.3.4")
+ (author "Evan Hanson")
+ (license "BSD")
+ (dependencies regex)
+ (components (extension ini-file)))

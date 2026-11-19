@@ -16,7 +16,7 @@
   (read-ini write-ini read-property
    default-section property-separator property-separator-patt
    property-value-map allow-empty-values? allow-bare-properties?)
-  (import scheme chicken extras ports regex)
+  (import scheme (chicken base) (chicken condition) (chicken io) (chicken file) (chicken port) regex)
   (require-library regex)
 
 ;; Default section name, under which to put unlabeled properties when reading.
@@ -80,7 +80,7 @@
 (define (chomp-str line)
   (string-substitute*
    line
-   '( ("[;#].*" . "") ("\\s+$" . "") ) ))
+   '( ( "[;#].*" . "") ) ))
 
 ;; process line, search for macros, then hand off line
 ;; if macro generates new lines, add them to stuffed-lines parameter
@@ -134,8 +134,9 @@
        (match-string
         line
 
-        ;; Empty string. 
+        ;; Empty string or whitespace-only line.
         (("") #f)
+        ((" +") #f)
         ;; Section header.
         ((" *\\[(.*?)\\] *([;#].*)?" section comment)
          (string->symbol section))
